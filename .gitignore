@@ -1,0 +1,9 @@
+# Конфиги
+node.conf
+
+# Python
+__pycache__/
+*.pyc
+
+# Локальные артефакты деплоя
+entry-config-profile.json*

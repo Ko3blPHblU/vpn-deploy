@@ -1,0 +1,41 @@
+# Конфигурация деплоя ноды vpn-deploy.
+# Скопируйте в node.conf, заполните и положите рядом с deploy-node.sh
+# (или в /opt/vpn-deploy/node.conf на сервере). Права: chmod 600.
+# Всё, что не заполнено, скрипт спросит интерактивно.
+
+# === Общее ===
+NODE_ROLE=panel            # panel | exit | entry
+NODE_NAME=i1               # метка ноды (только для отчётов)
+TZ=UTC
+
+# === bootstrap.sh (первичный скрипт) ===
+ADMIN_USER=deploy          # создаётся, если задан ADMIN_PUBKEY
+ADMIN_PUBKEY=              # ssh-ed25519 AAAA... — публичный ключ администратора
+DISABLE_PASSWORD_AUTH=0    # 1 — отключить вход по паролю (ТОЛЬКО при заданном ADMIN_PUBKEY)
+EXTRA_PORTS=               # доп. порты ufw через пробел, напр. "1443/tcp 8443/tcp"
+SKIP_UPGRADE=0             # 1 — не делать apt-get upgrade
+
+# === Роль panel (Remnawave панель + БД + Caddy) ===
+# Требования панели: минимум 2 vCPU / 2 ГБ RAM — не ставить на VPS с 1 ГБ.
+PANEL_DOMAIN=              # panel.example.com — A-запись на этот сервер, DNS only
+PANEL_KNOCK=               # секрет для «стука» (?rw=...), пусто — сгенерируется
+SUB_DOMAIN=                # sub.example.com — включить страницу подписок (нужен токен)
+REMNAWAVE_API_TOKEN=       # токен API из панели (создаётся после первого входа)
+
+# === Роли exit / entry (Remnawave node) ===
+# docker-compose.yml ноды целиком в base64. Копируется из панели
+# (Nodes → Management → + → Create node → Copy docker-compose.yml).
+# ВНИМАНИЕ: compose уникален для каждой ноды (внутри её секретный ключ),
+# поэтому для каждого сервера генерируется своя строка:
+#   cat node-compose.yml | base64 -w0
+REMNA_NODE_COMPOSE_B64=
+
+# === Роль entry (входная нода, каскад на выходы) ===
+# vless-ссылки на выходы из панели (внутренний «транзитный» пользователь),
+# по одной на каждый выход: EXIT1 — основной, EXIT2 — резервный.
+EXIT1_LINK=                # vless://uuid@O1:443?security=reality&...
+EXIT2_LINK=                # vless://uuid@O2:443?...
+ENTRY_REALITY_TARGET=www.microsoft.com:443   # TLS-маскировка входа
+ENTRY_SNI=www.microsoft.com
+ENTRY_PORT=443             # профиль «→ O1»
+ENTRY_PORT2=1443           # профиль «→ O2» (открыть через EXTRA_PORTS)
