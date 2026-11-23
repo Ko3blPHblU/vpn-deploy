@@ -406,10 +406,17 @@ EOF
     chmod +x /etc/letsencrypt/renewal-hooks/deploy/reload-nginx.sh
 
     STEP='selfsteal: самопроверка заглушки'
-    if curl -vk --resolve "$SELFSTEAL_DOMAIN:$SELFSTEAL_PORT:127.0.0.1" \
-            "https://$SELFSTEAL_DOMAIN:$SELFSTEAL_PORT" 2>&1 | grep -qE "CN ?\= ?$SELFSTEAL_DOMAIN"; then
+    # Без -k: curl сам проверяет сертификат по домену — 200 значит, что отвечает
+    # именно наш LE-сертификат и наш сайт.
+    if [[ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+            --resolve "$SELFSTEAL_DOMAIN:$SELFSTEAL_PORT:127.0.0.1" \
+            "https://$SELFSTEAL_DOMAIN:$SELFSTEAL_PORT")" == "200" ]]; then
         say "Заглушка на 127.0.0.1:$SELFSTEAL_PORT отвечает сертификатом $SELFSTEAL_DOMAIN."
     else
+        warn 'Самопроверка не прошла. Диагностика:'
+        { ss -tlnp | grep ":$SELFSTEAL_PORT" || echo "порт $SELFSTEAL_PORT никто не слушает"; } >&2
+        curl -v --max-time 10 --resolve "$SELFSTEAL_DOMAIN:$SELFSTEAL_PORT:127.0.0.1" \
+            "https://$SELFSTEAL_DOMAIN:$SELFSTEAL_PORT" 2>&1 | tail -20 >&2 || true
         die "Заглушка на 127.0.0.1:$SELFSTEAL_PORT не отвечает сертификатом $SELFSTEAL_DOMAIN."
     fi
 }
