@@ -19,7 +19,7 @@ trap 'rc=$?; (( rc )) && printf "[ОШИБКА] Шаг [%s] прерван (ко
 usage() {
     cat <<'EOF'
 Использование: sudo bash deploy-node.sh [путь к node.conf]
-  node.conf также ищется в ./node.conf и /opt/vpn-deploy/node.conf.
+  node.conf также ищется в ./node.conf, рядом со скриптом и /opt/vpn-deploy/node.conf.
   NODE_ROLE=panel  — панель Remnawave + PostgreSQL + Valkey + Caddy (HTTPS, «стук»).
   NODE_ROLE=exit   — выходная нода (remnawave-node за границей); при заданном
                      SELFSTEAL_DOMAIN — также nginx+certbot selfsteal-стек
@@ -38,7 +38,7 @@ while (( $# )); do
     shift
 done
 if [[ -z "$CONF" ]]; then
-    for c in ./node.conf "$STATE/node.conf"; do [[ -f "$c" ]] && CONF="$c" && break; done
+    for c in ./node.conf "$HERE/node.conf" "$STATE/node.conf"; do [[ -f "$c" ]] && CONF="$c" && break; done
 fi
 
 # значения по умолчанию (до source, чтобы не поймать set -u)
