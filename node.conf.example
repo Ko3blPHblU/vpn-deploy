@@ -1,0 +1,66 @@
+# Конфигурация деплоя ноды vpn-deploy.
+# Скопируйте в node.conf, заполните и положите рядом с deploy-node.sh
+# (или в /opt/vpn-deploy/node.conf на сервере). Права: chmod 600.
+# Всё, что не заполнено, скрипт спросит интерактивно.
+
+# === Общее ===
+NODE_ROLE=panel            # panel | exit | entry
+NODE_NAME=i1               # метка ноды (только для отчётов)
+TZ=UTC
+
+# === bootstrap.sh (первичный скрипт) ===
+ADMIN_USER=deploy          # создаётся, если задан ADMIN_PUBKEY
+ADMIN_PUBKEY=              # ssh-ed25519 AAAA... — публичный ключ администратора
+DISABLE_PASSWORD_AUTH=0    # 1 — отключить вход по паролю (ТОЛЬКО при заданном ADMIN_PUBKEY)
+EXTRA_PORTS=               # доп. порты ufw через пробел, напр. "1443/tcp 8443/tcp"
+SKIP_UPGRADE=0             # 1 — не делать apt-get upgrade
+
+# === Роль panel (Remnawave панель + БД + Caddy) ===
+# Требования панели: минимум 2 vCPU / 2 ГБ RAM — не ставить на VPS с 1 ГБ.
+PANEL_DOMAIN=              # panel.example.com — A-запись на этот сервер, DNS only
+PANEL_KNOCK=               # секрет для «стука» (?rw=...), пусто — сгенерируется
+SUB_DOMAIN=                # sub.example.com — включить страницу подписок (нужен токен)
+REMNAWAVE_API_TOKEN=       # токен API из панели (создаётся после первого входа)
+
+# Сайт-прикрытие (selfsteal) для входов: статический сайт на этом же сервере.
+# Домену нужна A-запись на этот сервер (DNS only). Caddy отдаёт сайт публично
+# на 443 и локально на 127.0.0.1:9443 — последний адрес идёт в
+# ENTRY_REALITY_TARGET входной ноды, домен — в ENTRY_SNI.
+# Файлы сайта — в SITE_DIR на сервере; необязательный htpasswd-файл (bcrypt):
+# /etc/caddy/site.users — если есть, сайт закрывается basic_auth.
+SITE_DOMAIN=               # напр. chat.example.com
+SITE_DIR=/opt/site         # каталог с index.html на сервере
+
+# === Роли exit / entry (Remnawave node) ===
+# docker-compose.yml ноды целиком в base64. Копируется из панели
+# (Nodes → Management → + → Create node → Copy docker-compose.yml).
+# ВНИМАНИЕ: compose уникален для каждой ноды (внутри её секретный ключ),
+# поэтому для каждого сервера генерируется своя строка:
+#   cat node-compose.yml | base64 -w0
+REMNA_NODE_COMPOSE_B64=
+
+# === Роль exit: selfsteal-стек + профиль (этап 1 автоматизации) ===
+# Если SELFSTEAL_DOMAIN задан, deploy-node.sh перед деплоем ноды сам:
+# ставит nginx+certbot, поднимает сайт-заглушку (/var/www/selfsteal),
+# выпускает LE-сертификат (нужны: A-запись домена на этот сервер, порт 80),
+# вешает TLS-заглушку на 127.0.0.1:SELFSTEAL_PORT с хуком продления,
+# проверяет её curl'ом и генерирует config-profile с ключом Reality
+# в /opt/vpn-deploy/exit-profile-<NODE_NAME>.json (внутри приватный ключ!).
+SELFSTEAL_DOMAIN=          # напр. o3.example.com; пусто — selfsteal пропускается
+SELFSTEAL_PORT=9443        # локальный порт заглушки (target в профиле)
+ACME_EMAIL=                # email для Let's Encrypt; пусто — регистрация без email.
+                           # Не сохраняется в state-конфиг (личные данные не храним).
+EXIT_PORT=443              # порт инбаунда выхода
+EXIT_XHTTP_PATH=/t1        # путь XHTTP
+EXIT_TAG=                  # тег инбаунда; пусто — exit-transit-<NODE_NAME>.
+                           # Должен быть уникален среди ВСЕХ профилей панели!
+
+# === Роль entry (входная нода, каскад на выходы) ===
+# vless-ссылки на выходы из панели (внутренний «транзитный» пользователь),
+# по одной на каждый выход: EXIT1 — основной, EXIT2 — резервный.
+EXIT1_LINK=                # vless://uuid@O1:443?security=reality&...
+EXIT2_LINK=                # vless://uuid@O2:443?...
+ENTRY_REALITY_TARGET=www.microsoft.com:443   # TLS-маскировка входа;
+ENTRY_SNI=www.microsoft.com                  # при selfsteal: 127.0.0.1:9443 и SITE_DOMAIN
+ENTRY_PORT=443             # профиль «→ O1»
+ENTRY_PORT2=1443           # профиль «→ O2» (открыть через EXTRA_PORTS)

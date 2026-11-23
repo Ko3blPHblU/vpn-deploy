@@ -1,0 +1,10 @@
+# Локальные секреты и конфиги — не публиковать
+node.conf
+node-*.conf
+node_*.conf
+exit-links.local.txt
+entry-config-profile.json
+entry-config-profile.json.links.txt
+node-compose-*.yml
+compose.b64
+exit-profile-*.json
