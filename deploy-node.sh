@@ -351,6 +351,9 @@ setup_selfsteal() {
         printf '<!DOCTYPE html><html><head><title>Welcome</title></head><body><h1>It works</h1></body></html>\n' \
             > /var/www/selfsteal/index.html
     fi
+    # umask 077 в этом скрипте — права на сайт выставляем явно, иначе nginx (www-data) получит 403
+    chmod 755 /var/www/selfsteal
+    chmod 644 /var/www/selfsteal/index.html
 
     STEP='selfsteal: nginx (порт 80 под ACME)'
     cat > /etc/nginx/sites-available/selfsteal <<EOF
